@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	//	"log"
 	// "os"
 	"bytes"
 	"fmt"
@@ -10,17 +10,17 @@ import (
 	"testing"
 )
 
-func Test_ViewWriterHookup(t *testing.T) {
-	log.Printf("Hookup Succeeded - testing view writer")
-}
+//func Test_ViewWriterHookup(t *testing.T) {
+//	log.Printf("Hookup Succeeded - testing view writer")
+//}
 
-func Test_SmokeTest(t *testing.T) {
-	parser := NewParser("Writer smoke test", ".cl1.cl2#id1 Some text\n\t%p Child paragraph")
-	parser.Parse()
-
-	//vw := newViewWriter(os.Stdout, parser.root, "Test")
-	//vw.WriteView()
-}
+//func Test_SmokeTest(t *testing.T) {
+//	parser := NewParser("Writer smoke test", ".cl1.cl2#id1 Some text\n\t%p Child paragraph")
+//	parser.Parse()
+//
+//	//vw := newViewWriter(os.Stdout, parser.root, "Test")
+//	//vw.WriteView()
+//}
 
 func Test_GetCharStr15(t *testing.T) {
 	str := genString(15, 3)
@@ -37,7 +37,7 @@ func Test_GetCharStr15(t *testing.T) {
 func Test_GetWhitespaceIndicies(t *testing.T) {
 	str := genString(15, 3)
 
-	vw := NewViewWriter(nil, nil, nil, "")
+	vw := NewViewWriter(nil, nil, nil, "", "")
 	spaces := vw.getWhitespaceIndicies(str)
 
 	if len(spaces) != 5 {
@@ -67,7 +67,7 @@ func Test_FormattingShortText(t *testing.T) {
 func Test_FormattingOneWrap(t *testing.T) {
 	txt := genString(130, 10)
 	expected :=
-		`123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789
+	`123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789
 123456789 123456789 
 `
 
@@ -87,7 +87,7 @@ func genString(count int, moduloToSpace int) string {
 }
 
 func testFormatStr(s string, expected string, t *testing.T) {
-	vw := NewViewWriter(nil, nil, nil, "")
+	vw := NewViewWriter(nil, nil, nil, "", "")
 	buffer := bytes.NewBuffer(make([]byte, 0))
 	ind := formatting.NewIndentingWriter(buffer)
 

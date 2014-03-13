@@ -8,9 +8,9 @@ Haml stands for HTML Abstraction Markup Language, a templating system originally
 
 HAML's core principles are:
 
-1) Markup Should be Beautiful 
-2) Markup Should be DRY 
-3) Markup Should be Well-Indented 
+1) Markup Should be Beautiful
+2) Markup Should be DRY
+3) Markup Should be Well-Indented
 4) HTML Structure Should be Clear
 
 
@@ -18,7 +18,8 @@ Learn more about Haml here: http://haml.info/
 
 A look at a Template
 
-  @data_type: string
+  @var data   string
+  @var footer string
 
   %html
     %head
@@ -41,16 +42,18 @@ A look at a Template
         this text will be wrapped in a div that looks like
         this: `<div class="implicit_class">...`
 
-      %ul{type:disc}
+      %ul {type=disc, class=super}
         - for i := 0; i < 10; i++ { // arbitrary go code
           %li= "Item: ", i
         - }
 
+      != footer
+
 The ghaml template above illustrates many features of Ghaml templates:
 
-Strongly-typed data type: the @data_type directive specifies that the template accepts a data parameter of type string. This will typically be a struct of view content.
+Strongly-typed data type: the @var directives specify that the template accepts two parameters of type string. In practice, a struct of view content would normally be used.
 
-Outputting tag content via the = operator is syntactically equal to the variadic parameter definition of the fmt.Print() function. Therefore variables and strings can be concatenated by seperating them with commas
+Outputting tag content via the = operator is syntactically equal to the variadic parameter definition of the fmt.Print() function. Therefore variables and strings can be concatenated by separating them with commas
 
 The - operator lets the developer execute arbitrary Go code.
 

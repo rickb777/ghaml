@@ -27,9 +27,13 @@ Learn more about Haml here: http://haml.info/
 A look at a Template
 ====================
 
-    @data_type: string
+    @package view
+    @import ("my/app/controller")
+    @var data   controller.ViewModel
+    @var footer string
 
     %html
+      / a comment
       %head
         %title= "Hello, ", data
       %body
@@ -50,22 +54,24 @@ A look at a Template
           this text will be wrapped in a div that looks like
           this: `<div class="implicit_class">...`
 		
-        %ul{type:disc}
+        %ul {type=disc, class=super}
           - for i := 0; i < 10; i++ { // arbitrary go code
             %li= "Item: ", i
           - }
 
+        != footer
+
 The ghaml template above illustrates many features of Ghaml templates:
 
-* Strongly-typed data type: the @data_type directive specifies that the 
-  template accepts a data parameter of type `string`. This will typically
-  be a struct of view content.
+* Strongly-typed data type: the @var directive specifies that the
+  template accepts a parameter called `data` of type `string`. This will
+  typically be a struct containing view content.
 * Outputting tag content via the `=` operator is syntactically equal to
   the variadic parameter definition of the `fmt.Print()` function. Therefore
   variables and strings can be concatenated by seperating them with commas.
   Further, the '=' operator protects against Cross-Site Scripting (XSS) attacks.
 * The `-` operator lets the developer execute arbitrary Go code.
-* The special '|' operator is equal to the '=' operator, but does not perform
+* The special '!=' operator is equal to the '=' operator, but does not perform
   HTML encoding, allowing for formatted output, with the risk of XSS attacks.
 
 Ghaml command syntax

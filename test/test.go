@@ -6,32 +6,31 @@ package main
 import (
 	"fmt"
 	"html/template"
-	"net/http"
+	"io"
+	"os"
 )
 
 func NewTestWriter() (*TestWriter) {
-	wr := &TestWriter{}
+	wr := &TestWriter{
+		templates: make([]*template.Template, 0, len(testTemplatePatterns)),
+	}
 	
-	for idx, pattern := range TestTemplatePatterns {
-		tmpl, err := template.New("TestTemplates" + string(idx)).Parse(pattern)
+	for idx, pattern := range testTemplatePatterns {
+		tmpl, err := template.New("testTemplates" + string(idx)).Parse(pattern)
 		if err != nil {
 			fmt.Errorf("Could not parse template: %d", idx)
 			panic(err)
 		}
-		TestTemplates = append(TestTemplates, tmpl)
+		wr.templates = append(wr.templates, tmpl)
 	}
 	return wr
 }
 
 type TestWriter struct {
-	data string
+	templates []*template.Template
 }
 
-func (wr *TestWriter) SetData(data interface{}) {
-	wr.data = data.(string)
-}
-
-var TestHtml = [...]string{
+var testHtml = [...]string{
 `<html>
 	<head>
 		<title>
@@ -40,7 +39,6 @@ var TestHtml = [...]string{
 		</title>
 	</head>
 	<body>
-		 | "Unescaped (and dangerous) output: <i>", data, "</i>"
 		<h1>
 			`,
 			`
@@ -55,7 +53,8 @@ var TestHtml = [...]string{
 			 The .operator (think of the '.' css selector') lets you create a div with the given class. For example
 			this text will be wrapped in a div that looks like
 		</div>
-		<div></div>
+		`,
+		`
 		<ul type="disc">
 			`,
 			`
@@ -71,33 +70,37 @@ var TestHtml = [...]string{
 `,
 }
 
-var TestTemplatePatterns = []string{
+var testTemplatePatterns = []string{
 	`Hello, {{.}}`,
 	`Hello, {{.}}`,
 }
 
-var TestTemplates = make([]*template.Template, 0, len(TestTemplatePatterns))
-
-func (wr TestWriter) Execute(w http.ResponseWriter, r *http.Request) {
-	wr.ExecuteData(w, r, wr.data)
-}
-
-func (wr *TestWriter) ExecuteData(w http.ResponseWriter, r *http.Request, data string) {
+func (wr *TestWriter) Execute(w io.Writer,
+			data string) {
 	var err error = nil
-	fmt.Fprint(w, TestHtml[0])
-	err = TestTemplates[0].Execute(w, data)
+		fmt.Fprint(w, testHtml[0])
+	err = wr.templates[0].Execute(w, data)
 	handleTestError(err)
-	fmt.Fprint(w, TestHtml[1])
-	err = TestTemplates[1].Execute(w, data)
+	fmt.Fprint(w, testHtml[1])
+	err = wr.templates[1].Execute(w, data)
 	handleTestError(err)
-	fmt.Fprint(w, TestHtml[2])
+	fmt.Fprint(w, testHtml[2])
+	fmt.Fprint(w, "Unescaped (and dangerous) output: <i>", data, "</i>")
+	fmt.Fprint(w, testHtml[3])
 	for i := 0; i < 10; i++ {
-		fmt.Fprint(w, TestHtml[3])
+		fmt.Fprint(w, testHtml[4])
 		fmt.Fprint(w, "Item: ", i)
-		fmt.Fprint(w, TestHtml[4])
+		fmt.Fprint(w, testHtml[5])
 	}
-	fmt.Fprint(w, TestHtml[5])
+	fmt.Fprint(w, testHtml[6])
+
+	if err != nil {
+		err = nil
+	}
 }
 
 func handleTestError(err error) {
-	if err != nil {fmt.Println(err)}}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+}

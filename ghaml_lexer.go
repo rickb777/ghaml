@@ -42,10 +42,11 @@ const (
 	itemAttributeValue
 	itemHtmlComment
 	itemEOF
-	itemCodeOutputStatic
-	itemCodeOutputDynamic
+	itemCodeOutputLiteral
+	itemCodeOutputValue
 	itemCodeOutputRaw
 	itemCodeExecution
+	itemDataName
 	itemDataType
 	itemImport
 	itemPackage
@@ -66,10 +67,11 @@ var itemName = map[lexItemType]string{
 	itemAttributeValue:    "attribute value",
 	itemHtmlComment:       "Html comment",
 	itemEOF:               "EOF",
-	itemCodeOutputStatic:  "static code output",
-	itemCodeOutputDynamic: "dynamic code output",
+	itemCodeOutputLiteral: "literal output",
+	itemCodeOutputValue:   "value output",
 	itemCodeOutputRaw:     "raw code output",
 	itemCodeExecution:     "code execution",
+	itemDataName:          "data name",
 	itemDataType:          "data type",
 	itemImport:            "import",
 	itemPackage:           "package",
@@ -492,7 +494,7 @@ func lexCodeOutputStatic(l *lexer) {
 		case '"':
 			if !backtickQuoting {
 				l.backup()
-				l.emit(itemCodeOutputStatic)
+				l.emit(itemCodeOutputLiteral)
 				l.next()
 				l.ignore()
 				return
@@ -500,7 +502,7 @@ func lexCodeOutputStatic(l *lexer) {
 		case '`':
 			if backtickQuoting {
 				l.backup()
-				l.emit(itemCodeOutputStatic)
+				l.emit(itemCodeOutputLiteral)
 				l.next()
 				l.ignore()
 				return
@@ -515,11 +517,11 @@ func lexCodeOutputDynamic(l *lexer) {
 		switch l.next() {
 		case eof, '\n', '\r':
 			l.backup()
-			l.emit(itemCodeOutputDynamic)
+			l.emit(itemCodeOutputValue)
 			return
 		case ',':
 			l.backup()
-			l.emit(itemCodeOutputDynamic)
+			l.emit(itemCodeOutputValue)
 			return
 		}
 	}
@@ -560,11 +562,11 @@ Loop:
 
 // lexes ghaml-specific meta-data
 func lexMetadata(l *lexer) stateFn {
-	l.acceptRunUntil(": (\n\r")
+	l.acceptRunUntil(" (\n\r")
 
 	metadataType := l.previewCurrent()
 	switch metadataType {
-	case "@data_type":
+	case "@var":
 		l.ignore()
 		return lexDatatype
 	case "@import":
@@ -575,14 +577,17 @@ func lexMetadata(l *lexer) stateFn {
 		return lexPackage
 	}
 
-	l.errorf("Expected @data_type or @import. Received %q", metadataType)
+	l.errorf("Expected @package, @var or @import. Received %q", metadataType)
 	return nil
 }
 
 // lexes the ghaml-specific datatype specifier
 func lexDatatype(l *lexer) stateFn {
-	l.acceptRun(": ")
+	l.acceptRun(" ")
 	l.ignore()
+	l.acceptRunUntil(" ")
+	l.emit(itemDataName)
+	l.skipSpacesAndTabs()
 	l.acceptRunUntil(" \n\r")
 	l.emit(itemDataType)
 	return lexLineEnd
@@ -615,7 +620,7 @@ func lexImports(l *lexer) stateFn {
 }
 
 func lexPackage(l *lexer) stateFn {
-	l.acceptRun(": ")
+	l.acceptRun(" ")
 	l.ignore()
 	l.acceptRunUntil(" \n\r")
 	l.emit(itemPackage)

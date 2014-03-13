@@ -1,14 +1,10 @@
-@import (
-)
-
-@data_type: string
-
+@var data string
 
 %html
   %head
-    %title= "Hello, ", data
+    %title= "Hello, ", Data
   %body
-    %h1= "Hello, ", data
+    %h1= "Hello, ", Data
         
     %div
       This is child content for the div above. Note that
@@ -24,10 +20,9 @@
       you create a div with the given class. For example
       this text will be wrapped in a div that looks like
 
-    | "Unescaped (and dangerous) output: <i>", data, "</i>"
+    != "Unescaped (and dangerous) output: <i>", data, "</i>"
 
-    
-    %ul{type:disc}
+    %ul{type="disc"}
       - for i := 0; i < 10; i++ {
         %li!= "Item: ", i
       - }

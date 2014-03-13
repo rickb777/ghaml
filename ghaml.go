@@ -159,7 +159,7 @@ func doesFileNeedsCompiling(filepath string, f os.FileInfo) bool {
 		panic(err)
 	}
 
-	// simple condition - 
+	// simple condition -
 	if !goFileExists {
 		return true
 	}
@@ -205,8 +205,9 @@ func compileFile(path string, f os.FileInfo) error {
 	}()
 
 	ext := filepath.Ext(f.Name())
-	rootNameStr := getProperCase(TrimSuffix(f.Name(), ext))
-	viewWriter := NewViewWriter(writer, parser.context, parser.root, rootNameStr)
+	rootNameStr := TrimSuffix(f.Name(), ext)
+	properRootNameStr := getProperCase(rootNameStr)
+	viewWriter := NewViewWriter(writer, parser.context, parser.root, rootNameStr, properRootNameStr)
 	viewWriter.WriteView()
 
 	return nil

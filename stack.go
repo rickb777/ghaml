@@ -1,7 +1,5 @@
 package main
 
-import ()
-
 type stack struct {
 	top  *StackNode
 	size int

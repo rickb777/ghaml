@@ -12,16 +12,19 @@ type ViewWriter struct {
 	context           *ParseContext
 	rootNode          *Node
 	writer            io.Writer
-	destinationName   string
+	viewName          string
+	properViewName    string
 	writingCodeOutput bool
 }
 
-func NewViewWriter(wr io.Writer, context *ParseContext, rootNode *Node, writerName string) *ViewWriter {
+func NewViewWriter(wr io.Writer, context *ParseContext, rootNode *Node,
+	writerName string, properWriterName string) *ViewWriter {
 	vw := &ViewWriter{
-		context:         context,
-		rootNode:        rootNode,
-		writer:          wr,
-		destinationName: writerName,
+		context:        context,
+		rootNode:       rootNode,
+		writer:         wr,
+		viewName:       writerName,
+		properViewName: properWriterName,
 	}
 
 	return vw
@@ -41,85 +44,82 @@ func (w *ViewWriter) WriteView() {
 	src.IncrIndent()
 	src.Println("\"fmt\"")
 	src.Println("\"html/template\"")
-	src.Println("\"net/http\"")
+	src.Println("\"io\"")
+	src.Println("\"os\"")
 	for _, imp := range w.context.imports {
 		src.Printf("%q\n", imp)
 	}
 	src.DecrIndent()
 	src.Println(")")
 	src.Println("")
-	src.Printf("func New%sWriter() (*%sWriter) {\n", w.destinationName, w.destinationName)
+	src.Printf("func New%sWriter() (*%sWriter) {\n", w.properViewName, w.properViewName)
 	src.IncrIndent()
-	src.Printf("wr := &%sWriter{}\n", w.destinationName)
+	src.Printf("wr := &%sWriter{\n", w.properViewName)
+	src.Printf("	templates: make([]*template.Template, 0, len(%sTemplatePatterns)),\n", w.viewName)
+	src.Println("}")
 	src.Println("")
-	src.Printf("for idx, pattern := range %sTemplatePatterns {\n", w.destinationName)
+	src.Printf("for idx, pattern := range %sTemplatePatterns {\n", w.viewName)
 	src.IncrIndent()
-	src.Printf("tmpl, err := template.New(\"%sTemplates\" + string(idx)).Parse(pattern)\n", w.destinationName)
+	src.Printf("tmpl, err := template.New(\"%sTemplates\" + string(idx)).Parse(pattern)\n", w.viewName)
 	src.Println("if err != nil {")
 	src.IncrIndent()
 	src.Println("fmt.Errorf(\"Could not parse template: %d\", idx)")
 	src.Println("panic(err)")
 	src.DecrIndent()
 	src.Println("}")
-	src.Printf("%sTemplates = append(%sTemplates, tmpl)\n", w.destinationName, w.destinationName)
+	src.Println("wr.templates = append(wr.templates, tmpl)")
 	src.DecrIndent()
 	src.Println("}")
 	src.Println("return wr")
 	src.DecrIndent()
 	src.Println("}")
 	src.Println("")
-	src.Printf("type %sWriter struct {\n", w.destinationName)
+	src.Printf("type %sWriter struct {\n", w.properViewName)
 	src.IncrIndent()
-	src.Printf("data %s\n", w.context.dataType)
+	src.Println("templates []*template.Template")
 	src.DecrIndent()
 	src.Println("}")
 	src.Println("")
-	src.Printf("func (wr *%sWriter) SetData(data interface{}) {\n", w.destinationName)
-	src.IncrIndent()
-	src.Printf("wr.data = data.(%s)\n", w.context.dataType)
-	src.DecrIndent()
-	src.Println("}")
-	src.Println("")
-	src.Printf("var %sHtml = [...]string{\n", w.destinationName)
+	src.Printf("var %sHtml = [...]string{\n", w.viewName)
 	src.Println(htmlArr)
 	src.Println("}")
 	src.Println("")
-	src.Printf("var %sTemplatePatterns = []string{\n", w.destinationName)
+	src.Printf("var %sTemplatePatterns = []string{\n", w.viewName)
 	src.Print(patterns)
 	src.Println("}")
 	src.Println("")
-	src.Printf("var %sTemplates = make([]*template.Template, 0, len(%sTemplatePatterns))\n", w.destinationName, w.destinationName)
-	src.Println("")
-	src.Printf("func (wr %sWriter) Execute(w http.ResponseWriter, r *http.Request) {\n", w.destinationName)
+	src.Printf("func (wr *%sWriter) Execute(w io.Writer", w.properViewName)
+	for _, name := range w.context.data {
+		typ := w.context.types[name]
+		src.Printf(",\n\t\t\t%s %s", name, typ)
+	}
+	src.Println(") {")
 	src.IncrIndent()
-	src.Println("wr.ExecuteData(w, r, wr.data)")
-	src.DecrIndent()
-	src.Println("}")
-	src.Println("")
-	src.Printf("func (wr *%sWriter) ExecuteData(w http.ResponseWriter, r *http.Request, data %s) {\n", w.destinationName, w.context.dataType)
-	src.Printf("	var err error = nil\n")
+	src.Printf("var err error = nil\n")
 	// output from processNodes
 	// This is calls to htmlArray and code generated Prints
 	src.Print(srcOut)
 
-	src.IncrIndent()
-	src.Printf("if err != nil {")
-	src.IncrIndent()
-	src.Printf("err = nil")
 	src.DecrIndent()
-	src.Printf("}")
+	src.Println("")
+	src.IncrIndent()
+	src.Printf("if err != nil {\n")
+	src.IncrIndent()
+	src.Printf("err = nil\n")
+	src.DecrIndent()
+	src.Println("}")
 	src.DecrIndent()
 	src.Println("}")
 	src.Println("")
-	src.Printf("func handle%sError(err error) {\n", w.destinationName)
+	src.Printf("func handle%sError(err error) {\n", w.properViewName)
 	src.IncrIndent()
-	src.Printf("if err != nil {")
+	src.Printf("if err != nil {\n")
 	src.IncrIndent()
-	src.Printf("fmt.Println(err)")
+	src.Printf("fmt.Fprintln(os.Stderr, err)\n")
 	src.DecrIndent()
-	src.Printf("}")
+	src.Println("}")
 	src.DecrIndent()
-	src.Printf("}")
+	src.Println("}")
 }
 
 // processNodes generates code from the parsed haml nodes
@@ -131,13 +131,21 @@ func (w *ViewWriter) WriteView() {
 //  fmt.Fprint(w, HtmlArray[1]) ...
 func (w *ViewWriter) processNodes() (htmlArray string, src string, patterns string) {
 	htmlBuffer := bytes.NewBuffer(make([]byte, 0))
-	htmlWriter := formatting.NewIndentingWriter(htmlBuffer)
 	srcBuffer := bytes.NewBuffer(make([]byte, 0))
-	srcWriter := formatting.NewIndentingWriter(srcBuffer)
 	patternBuffer := bytes.NewBuffer(make([]byte, 0))
-	patternWriter := formatting.NewIndentingWriter(patternBuffer)
 
-	// initialise opening quote for htlmArray
+	w.processNodes2(formatting.NewIndentingWriter(htmlBuffer),
+		formatting.NewIndentingWriter(srcBuffer),
+		formatting.NewIndentingWriter(patternBuffer))
+
+	htmlArray = htmlBuffer.String()
+	src = srcBuffer.String()
+	patterns = patternBuffer.String()
+	return
+}
+
+func (w *ViewWriter) processNodes2(htmlWriter, srcWriter, patternWriter *formatting.IndentingWriter) {
+	// initialise opening quote for htmlArray
 	htmlWriter.Print("`")
 
 	// initialise starting indent for src
@@ -156,44 +164,43 @@ func (w *ViewWriter) processNodes() (htmlArray string, src string, patterns stri
 	htmlWriter.Print("`,")
 
 	// Ensure final html is written
-	srcWriter.Printf("fmt.Fprint(w, %sHtml[%d])\n", w.destinationName, htmlIndex)
+	srcWriter.Printf("fmt.Fprint(w, %sHtml[%d])\n", w.viewName, htmlIndex)
 
 	// if our last op was writing code, we need to close pattern string
 	if w.writingCodeOutput {
 		patternWriter.Println("`,")
 	}
-
-	htmlArray = htmlBuffer.String()
-	src = srcBuffer.String()
-	patterns = patternBuffer.String()
-	return
 }
 
 type CodeOutputType int
 
 const (
-	Static CodeOutputType = iota
-	Dynamic
-	Raw
+	Literal CodeOutputType = iota
+	EscapedValue
+	RawValue
 	Execution
 )
 
 // Recursive function to write parsed HAML Nodes
 // We have to return a bool indicating if we have escaped any HTML (XSS protection)
 // so that we know if we need to include the templating library for that function
-func (w *ViewWriter) writeNode(el *list.Element, haml *formatting.IndentingWriter, src *formatting.IndentingWriter, pattern *formatting.IndentingWriter, currentHtmlIndex int, currentPatternIndex int) (htmlIndex, patternIndex int) {
+func (w *ViewWriter) writeNode(el *list.Element,
+	haml, src, pattern *formatting.IndentingWriter,
+	currentHtmlIndex, currentPatternIndex int) (htmlIndex, patternIndex int) {
+
 	nd := el.Value.(*Node)
 
 	htmlIndex = currentHtmlIndex
 	patternIndex = currentPatternIndex
 
-	if nd.name == "code_output_static" {
-		return w.writeCodeOutput(el, haml, src, pattern, htmlIndex, patternIndex, Static)
-	} else if nd.name == "code_output_dynamic" {
-		return w.writeCodeOutput(el, haml, src, pattern, htmlIndex, patternIndex, Dynamic)
-	} else if nd.name == "code_output_raw" {
-		return w.writeCodeOutput(el, haml, src, pattern, htmlIndex, patternIndex, Raw)
-	} else if nd.name == "code_execution" {
+	switch nd.name {
+	case "code_output_literal":
+		return w.writeCodeOutput(el, haml, src, pattern, htmlIndex, patternIndex, Literal)
+	case "code_output_value":
+		return w.writeCodeOutput(el, haml, src, pattern, htmlIndex, patternIndex, EscapedValue)
+	case "code_output_raw":
+		return w.writeCodeOutput(el, haml, src, pattern, htmlIndex, patternIndex, RawValue)
+	case "code_execution":
 		return w.writeCodeOutput(el, haml, src, pattern, htmlIndex, patternIndex, Execution)
 	}
 
@@ -305,7 +312,9 @@ func (w *ViewWriter) writeAttribute(attribute *nameValueStr, haml *formatting.In
 	haml.Printf(" %s=\"%s\"", attribute.name, attribute.value)
 }
 
-func (w *ViewWriter) writeCodeOutput(el *list.Element, haml *formatting.IndentingWriter, src *formatting.IndentingWriter, pattern *formatting.IndentingWriter, currentHtmlIndex int, currentPatternIndex int, nodeType CodeOutputType) (htmlIndex, patternIndex int) {
+func (w *ViewWriter) writeCodeOutput(el *list.Element, haml, src, pattern *formatting.IndentingWriter,
+	currentHtmlIndex, currentPatternIndex int, nodeType CodeOutputType) (htmlIndex, patternIndex int) {
+
 	nd := el.Value.(*Node)
 
 	htmlIndex = currentHtmlIndex
@@ -320,15 +329,15 @@ func (w *ViewWriter) writeCodeOutput(el *list.Element, haml *formatting.Indentin
 		haml.Println("`")
 
 		// Add call to write html from array
-		src.Printf("fmt.Fprint(w, %sHtml[%d])\n", w.destinationName, currentHtmlIndex)
+		src.Printf("fmt.Fprint(w, %sHtml[%d])\n", w.viewName, currentHtmlIndex)
 
-		if nodeType == Static || nodeType == Dynamic {
+		if nodeType == Literal || nodeType == EscapedValue {
 			// Add calls to execute template. However, we need to know which
 			// object to inject into template. Usually this will be 'data', but
 			// can be something else inside a loop, for example, so we take the
 			// object from the first dynamic element
 			objectToInject := "data"
-			if nodeType == Dynamic {
+			if nodeType == EscapedValue {
 				objectToInject = getObjectName(nd.text)
 			} else {
 			LookaheadLoop:
@@ -341,8 +350,8 @@ func (w *ViewWriter) writeCodeOutput(el *list.Element, haml *formatting.Indentin
 					}
 				}
 			}
-			src.Printf("err = %sTemplates[%d].Execute(w, %s)\n", w.destinationName, currentPatternIndex, objectToInject)
-			src.Printf("handle%sError(err)\n", w.destinationName)
+			src.Printf("err = wr.templates[%d].Execute(w, %s)\n", currentPatternIndex, objectToInject)
+			src.Printf("handle%sError(err)\n", w.properViewName)
 			// start a new pattern string
 			pattern.Print("`")
 
@@ -354,16 +363,16 @@ func (w *ViewWriter) writeCodeOutput(el *list.Element, haml *formatting.Indentin
 	}
 
 	// These stop writing patterns, so we need to close off pattern strings
-	if w.writingCodeOutput && (nodeType == Raw || nodeType == Execution) {
+	if w.writingCodeOutput && (nodeType == RawValue || nodeType == Execution) {
 		pattern.Println("`,")
 		w.writingCodeOutput = false
 	}
 
 	// add call to print output
 	switch nodeType {
-	case Static:
+	case Literal:
 		pattern.Print(nd.text)
-	case Dynamic:
+	case EscapedValue:
 		// print the path to the desired object for the template pattern
 		patternStr := "."
 		index := strings.Index(nd.text, ".")
@@ -371,7 +380,7 @@ func (w *ViewWriter) writeCodeOutput(el *list.Element, haml *formatting.Indentin
 			patternStr = nd.text[index:]
 		}
 		pattern.Printf("{{%s}}", patternStr)
-	case Raw:
+	case RawValue:
 		src.Printf("fmt.Fprint(w, %s)\n", nd.text)
 	case Execution:
 		// attempt to keep formatting across user code.
@@ -415,8 +424,7 @@ func getLastChar(s string) byte {
 	return trimmed[len(trimmed)-1]
 }
 
-// returns the name of the object to inject
-// into a template. Usually this is just 'data'
+// returns the name of the object to inject into a template.
 func getObjectName(s string) string {
 	index := strings.Index(s, ".")
 	if index < 0 {

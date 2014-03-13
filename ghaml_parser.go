@@ -1,14 +1,14 @@
 package main
 
 import (
-	"container/list"
 	"log"
 )
 
 type ParseContext struct {
-	pkg      string
-	dataType string
-	imports  []string
+	pkg     string
+	data    []string
+    types   map[string]string
+	imports []string
 }
 
 type GhamlParser struct {
@@ -30,13 +30,14 @@ func NewParser(name, input string) *GhamlParser {
 		lineNo: 0,
 		tags:   new(stack),
 		context: &ParseContext{
-			pkg:      "main",
-			dataType: "interface{}",
-			imports:  make([]string, 0),
+			pkg:     "main",
+			data:    make([]string, 0),
+			types:   make(map[string]string),
+			imports: make([]string, 0),
 		},
 	}
 
-	g.root = buildNode("root")
+	g.root = NewNode("root")
 	tagIndent := &tagIndentation{
 		node:        g.root,
 		indentLevel: 0,
@@ -52,65 +53,15 @@ type tagIndentation struct {
 	indentLevel int
 }
 
-// Represents ... wait for it... name and value strings
-type nameValueStr struct {
-	name  string
-	value string
-}
-
-// A parse node (roughly translates directly to an html tag)
-type Node struct {
-	name        string
-	text        string
-	id          *nameValueStr // treat id and class differently so that we can
-	class       *nameValueStr // write them to the front of the attr list
-	attributes  *list.List
-	children    *list.List
-	selfClosing bool
-}
-
-// appends a node to the children list
-func (n *Node) appendNode(NodeToAdd *Node) {
-	n.children.PushBack(NodeToAdd)
-}
-
-// sets the id of the node
-func (n *Node) setId(id string) {
-	n.id = &nameValueStr{
-		name:  "id",
-		value: id,
-	}
-}
-
-// adds a class to the current node
-func (n *Node) addClass(class string) {
-	if n.class == nil {
-		n.class = &nameValueStr{
-			name:  "class",
-			value: "",
-		}
-	}
-
-	if len(n.class.value) > 0 {
-		n.class.value += " "
-	}
-
-	n.class.value += class
-}
-
-// adds an attribute to this node
-func (n *Node) addAttribute(attr *nameValueStr) {
-	n.attributes.PushBack(attr)
-}
-
 // adds an import to the context
 func (g *GhamlParser) addImport(imp string) {
 	g.context.imports = append(g.context.imports, imp)
 }
 
 // sets the 'data' parameter's type
-func (g *GhamlParser) setDataType(dataType string) {
-	g.context.dataType = dataType
+func (g *GhamlParser) setDataType(dataName string, dataType string) {
+	g.context.data = append(g.context.data, dataName)
+	g.context.types[dataName] = dataType
 }
 
 // setPackage sets the package for the generated code
@@ -135,7 +86,7 @@ func (g *GhamlParser) getCurrentIndentation() int {
 
 // initiates the parsing process
 func (g *GhamlParser) Parse() {
-Loop:
+	dataName := ""
 	for {
 		lexeme := g.lexer.nextItem()
 
@@ -144,13 +95,15 @@ Loop:
 			g.handleAttribute(lexeme.val)
 		case itemImport:
 			g.addImport(lexeme.val)
+		case itemDataName:
+			dataName = lexeme.val
 		case itemDataType:
-			g.setDataType(lexeme.val)
+			g.setDataType(dataName, lexeme.val)
 		case itemPackage:
 			g.setPackage(lexeme.val)
 		case itemDoctype:
 			g.handleDoctype(lexeme)
-		case itemCodeOutputStatic, itemCodeOutputDynamic, itemCodeOutputRaw, itemCodeExecution:
+		case itemCodeOutputLiteral, itemCodeOutputValue, itemCodeOutputRaw, itemCodeExecution:
 			g.handleCodeOutput(lexeme)
 		case itemIndentation:
 			indentation := lexeme.val
@@ -165,7 +118,7 @@ Loop:
 		case itemClass:
 			g.getCurrentNode().addClass(lexeme.val)
 		case itemEOF:
-			break Loop
+			return
 		}
 	}
 }
@@ -186,7 +139,7 @@ func (g *GhamlParser) handleAttribute(attributeName string) {
 
 // parses a doctype (!!!)
 func (g *GhamlParser) handleDoctype(l lexeme) {
-	n := buildNode("doctype")
+	n := NewNode("doctype")
 	n.text = l.val
 	n.selfClosing = true
 	g.getCurrentNode().appendNode(n)
@@ -195,10 +148,10 @@ func (g *GhamlParser) handleDoctype(l lexeme) {
 // parses a code output token (= ...)
 func (g *GhamlParser) handleCodeOutput(l lexeme) {
 	switch l.typ {
-	case itemCodeOutputStatic:
-		g.buildCodeNode("code_output_static", l)
-	case itemCodeOutputDynamic:
-		g.buildCodeNode("code_output_dynamic", l)
+	case itemCodeOutputLiteral:
+		g.buildCodeNode("code_output_literal", l)
+	case itemCodeOutputValue:
+		g.buildCodeNode("code_output_value", l)
 	case itemCodeOutputRaw:
 		g.buildCodeNode("code_output_raw", l)
 	case itemCodeExecution:
@@ -207,7 +160,7 @@ func (g *GhamlParser) handleCodeOutput(l lexeme) {
 }
 
 func (g *GhamlParser) buildCodeNode(nodeName string, l lexeme) {
-	n := buildNode(nodeName)
+	n := NewNode(nodeName)
 	n.text = l.val
 	g.getCurrentNode().appendNode(n)
 }
@@ -230,25 +183,25 @@ func (g *GhamlParser) parseLineStart(indentation string, firstItem lexeme) {
 
 	switch firstItem.typ {
 	case itemTag:
-		firstNode = buildNode(firstItem.val)
+		firstNode = NewNode(firstItem.val)
 	case itemText:
 		// text on a new line, but not a continuation
-		firstNode = buildNode("")
+		firstNode = NewNode("")
 		firstNode.text = firstItem.val
-	case itemCodeOutputStatic:
-		firstNode = buildNode("code_output_static")
+	case itemCodeOutputLiteral:
+		firstNode = NewNode("code_output_literal")
 		firstNode.text = firstItem.val
-	case itemCodeOutputDynamic:
-		firstNode = buildNode("code_output_dynamic")
+	case itemCodeOutputValue:
+		firstNode = NewNode("code_output_value")
 		firstNode.text = firstItem.val
 	case itemCodeOutputRaw:
-		firstNode = buildNode("code_output_raw")
+		firstNode = NewNode("code_output_raw")
 		firstNode.text = firstItem.val
 	case itemCodeExecution:
-		firstNode = buildNode("code_execution")
+		firstNode = NewNode("code_execution")
 		firstNode.text = firstItem.val
 	default:
-		firstNode = buildNode("div")
+		firstNode = NewNode("div")
 	}
 
 	tagIndentation := buildTagIndentation(firstNode, indentation)
@@ -275,66 +228,13 @@ func buildTagIndentation(n *Node, indentation string) *tagIndentation {
 	}
 }
 
-func buildNode(name string) *Node {
-	return &Node{
-		name:        name,
-		text:        "",
-		id:          nil,
-		class:       nil,
-		attributes:  new(list.List),
-		children:    new(list.List),
-		selfClosing: false,
-	}
-}
-
 // utility function to create a string dump of the content
 func (g *GhamlParser) dumpNodes() string {
 	result := ""
 
 	for n := g.root.children.Front(); n != nil; n = n.Next() {
-		result = dumpNode(n.Value.(*Node), result, 0)
+		result = n.Value.(*Node).dumpNode(result, 0)
 	}
 
 	return result
-}
-
-// recursive function to dump a node's content
-func dumpNode(nd *Node, str string, indent int) string {
-	if len(str) > 0 {
-		str += "\n"
-	}
-
-	for i := 0; i < indent; i++ {
-		str += "\t"
-	}
-
-	str += nd.name
-
-	if nd.id != nil {
-		str += " " + getAttrStr(nd.id)
-	}
-
-	if nd.class != nil {
-		str += " " + getAttrStr(nd.class)
-	}
-
-	for attrEl := nd.attributes.Front(); attrEl != nil; attrEl = attrEl.Next() {
-		attr := attrEl.Value.(*nameValueStr)
-		str += " " + getAttrStr(attr)
-	}
-
-	if len(nd.text) > 0 {
-		str += " (" + nd.text + ")"
-	}
-
-	for n := nd.children.Front(); n != nil; n = n.Next() {
-		str = dumpNode(n.Value.(*Node), str, indent+1)
-	}
-
-	return str
-}
-
-// returns a string representation of an attribute
-func getAttrStr(nv *nameValueStr) string {
-	return nv.name + "='" + nv.value + "'"
 }

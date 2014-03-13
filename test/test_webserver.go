@@ -91,8 +91,7 @@ func getTestData() *TestDataType {
 func handleEscapeRequest(w http.ResponseWriter, r *http.Request) {
 	testData := getTestData()
 	wr := NewEscapingWriter()
-	wr.SetData(testData)
-	wr.Execute(w, r)
+	wr.Execute(w, testData)
 }
 
 func main() {

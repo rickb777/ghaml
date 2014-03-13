@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-func Test_ParserHookup(t *testing.T) {
-	log.Printf("Hookup Succeeded - testing parsing")
-}
+//func Test_ParserHookup(t *testing.T) {
+//	log.Printf("Hookup Succeeded - testing parsing")
+//}
 
 func getTestParser(testname, content string) *GhamlParser {
 	return NewParser(testname, content)
@@ -141,14 +141,14 @@ func Test_Attributes(t *testing.T) {
 
 func Test_CodeOutput(t *testing.T) {
 	hamlStr := "= fmt.Println(\"hi\")"
-	expStr := "code_output_dynamic (fmt.Println(\"hi\"))"
+	expStr := "code_output_value (fmt.Println(\"hi\"))"
 
 	parseAndCompare(hamlStr, expStr, t)
 }
 
 func Test_TagAndCodeOutput(t *testing.T) {
 	hamlStr := "%p.hi= \"hi\", fmt.Println(\"hi\")"
-	expStr := "p class='hi'\n\tcode_output_static (hi)\n\tcode_output_dynamic (fmt.Println(\"hi\"))"
+	expStr := "p class='hi'\n\tcode_output_literal (hi)\n\tcode_output_value (fmt.Println(\"hi\"))"
 
 	parseAndCompare(hamlStr, expStr, t)
 }
@@ -168,12 +168,15 @@ func Test_TagAndRawCodeOutput(t *testing.T) {
 }
 
 func Test_ParserDataType(t *testing.T) {
-	hamlStr := "@data_type: []string"
+	hamlStr := "@var stuff []string"
 	parser := NewParser(hamlStr, hamlStr)
 	parser.Parse()
 
-	if bytes.Compare([]byte(parser.context.dataType), []byte("[]string")) != 0 {
-		t.Error("datatype parse error. Expected '[]string', got: " + parser.context.dataType)
+	if bytes.Compare([]byte(parser.context.data[0]), []byte("stuff")) != 0 {
+		t.Error("datatype parse error. Expected 'stuff', got: " + parser.context.data[0])
+	}
+	if bytes.Compare([]byte(parser.context.types["stuff"]), []byte("[]string")) != 0 {
+		t.Error("datatype parse error. Expected '[]string', got: " + parser.context.types["stuff"])
 	}
 }
 
@@ -183,7 +186,7 @@ func Test_ParserImport(t *testing.T) {
 	parser.Parse()
 
 	if bytes.Compare([]byte(parser.context.imports[0]), []byte("fmt")) != 0 {
-		t.Error("datatype parse error. Expected '[]string', got: " + parser.context.dataType)
+		t.Error("import parse error. Expected '[]string', got: " + parser.context.imports[0])
 	}
 }
 
@@ -193,22 +196,24 @@ func Test_ParserMultipleImports(t *testing.T) {
 	parser.Parse()
 
 	if bytes.Compare([]byte(parser.context.imports[0]), []byte("fmt")) != 0 {
-		t.Error("datatype parse error. Expected '[]string', got: " + parser.context.dataType)
+		t.Error("import parse error. Expected '[]string', got: " + parser.context.imports[0])
 	}
 
 	if bytes.Compare([]byte(parser.context.imports[1]), []byte("strings")) != 0 {
-		t.Error("datatype parse error. Expected '[]string', got: " + parser.context.dataType)
+		t.Error("import parse error. Expected '[]string', got: " + parser.context.imports[1])
 	}
 }
 
 func Test_Metadata(t *testing.T) {
 	hamlStr := `
+@package view
+
 @import (
   "fmt"
   "os"
 )
 
-@data_type: test_struct
+@var data test_struct
 
 %html
   %head

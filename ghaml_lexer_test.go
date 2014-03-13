@@ -1,13 +1,13 @@
 package main
 
 import (
-	"log"
+//	"log"
 	"testing"
 )
 
-func Test_LexHookup(t *testing.T) {
-	log.Printf("Hookup Succeeded - testing lexing")
-}
+//func Test_LexHookup(t *testing.T) {
+//	log.Printf("Hookup Succeeded - testing lexing")
+//}
 
 func Test_Next(t *testing.T) {
 	input := "abcd"
@@ -267,13 +267,13 @@ func Test_Equals(t *testing.T) {
 	testLexeme(lexeme, itemIndentation, "", t)
 
 	lexeme = l.nextItem()
-	testLexeme(lexeme, itemCodeOutputStatic, "static", t)
+	testLexeme(lexeme, itemCodeOutputLiteral, "static", t)
 
 	lexeme = l.nextItem()
-	testLexeme(lexeme, itemCodeOutputDynamic, "dynamic", t)
+	testLexeme(lexeme, itemCodeOutputValue, "dynamic", t)
 
 	lexeme = l.nextItem()
-	testLexeme(lexeme, itemCodeOutputStatic, "also static", t)
+	testLexeme(lexeme, itemCodeOutputLiteral, "also static", t)
 }
 
 func Test_TagEquals(t *testing.T) {
@@ -287,10 +287,10 @@ func Test_TagEquals(t *testing.T) {
 	testLexeme(lexeme, itemTag, "p", t)
 
 	lexeme = l.nextItem()
-	testLexeme(lexeme, itemCodeOutputStatic, "static", t)
+	testLexeme(lexeme, itemCodeOutputLiteral, "static", t)
 
 	lexeme = l.nextItem()
-	testLexeme(lexeme, itemCodeOutputDynamic, "dynamic", t)
+	testLexeme(lexeme, itemCodeOutputValue, "dynamic", t)
 }
 
 func Test_QuotedCodeOutput(t *testing.T) {
@@ -301,10 +301,10 @@ func Test_QuotedCodeOutput(t *testing.T) {
 	testLexeme(lexeme, itemIndentation, "", t)
 
 	lexeme = l.nextItem()
-	testLexeme(lexeme, itemCodeOutputStatic, `abc \"abc\"`, t)
+	testLexeme(lexeme, itemCodeOutputLiteral, `abc \"abc\"`, t)
 
 	lexeme = l.nextItem()
-	testLexeme(lexeme, itemCodeOutputDynamic, "dynamic", t)
+	testLexeme(lexeme, itemCodeOutputValue, "dynamic", t)
 }
 
 func Test_BacktickCodeOutput(t *testing.T) {
@@ -315,10 +315,10 @@ func Test_BacktickCodeOutput(t *testing.T) {
 	testLexeme(lexeme, itemIndentation, "", t)
 
 	lexeme = l.nextItem()
-	testLexeme(lexeme, itemCodeOutputStatic, "abc \"quoted\"", t)
+	testLexeme(lexeme, itemCodeOutputLiteral, "abc \"quoted\"", t)
 
 	lexeme = l.nextItem()
-	testLexeme(lexeme, itemCodeOutputDynamic, "dynamic", t)
+	testLexeme(lexeme, itemCodeOutputValue, "dynamic", t)
 }
 
 func Test_Raw(t *testing.T) {
@@ -380,10 +380,13 @@ func Test_Dash(t *testing.T) {
 }
 
 func Test_DataType(t *testing.T) {
-	input := "@data_type: string"
+	input := "@var data string"
 	l := lex("data_type", input)
 
 	lexeme := l.nextItem()
+	testLexeme(lexeme, itemDataName, "data", t)
+
+	lexeme = l.nextItem()
 	testLexeme(lexeme, itemDataType, "string", t)
 }
 
